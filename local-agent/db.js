@@ -73,6 +73,27 @@ async function getDriver() {
         return result.recordset;
       }
     };
+  } else if (engine === 'hana') {
+    const hdb = (await import('hdb')).default;
+    const client = hdb.createClient({
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT || 30015),
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD
+    });
+    await new Promise((resolve, reject) => {
+      client.connect((err) => (err ? reject(err) : resolve()));
+    });
+    driverCache = {
+      run: (sql, values) =>
+        new Promise((resolve, reject) => {
+          client.exec(sql, values, (err, rows) => (err ? reject(err) : resolve(rows)));
+        }),
+      runRaw: (sql) =>
+        new Promise((resolve, reject) => {
+          client.exec(sql, (err, rows) => (err ? reject(err) : resolve(rows)));
+        })
+    };
   } else if (engine === 'sqlite') {
     const Database = (await import('better-sqlite3')).default;
     const db = new Database(process.env.DB_PATH);
@@ -88,7 +109,7 @@ async function getDriver() {
     };
   } else {
     throw new Error(
-      `Unsupported or missing DB_ENGINE: "${process.env.DB_ENGINE}". Use mysql, postgres, mssql, or sqlite.`
+      `Unsupported or missing DB_ENGINE: "${process.env.DB_ENGINE}". Use mysql, postgres, mssql, hana, or sqlite.`
     );
   }
 
