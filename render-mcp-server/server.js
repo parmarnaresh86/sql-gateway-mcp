@@ -10,6 +10,29 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { createAgentRelay } from './agentRelay.js';
 
 const relay = createAgentRelay();
+const MCP_ACCESS_TOKEN = (process.env.MCP_ACCESS_TOKEN || '').trim();
+
+if (!MCP_ACCESS_TOKEN) {
+  console.warn(
+    '[security] MCP_ACCESS_TOKEN is not set - /mcp is open to anyone with the URL. Set MCP_ACCESS_TOKEN in the environment to require a token.'
+  );
+}
+
+function requireMcpAuth(req, res, next) {
+  if (!MCP_ACCESS_TOKEN) return next();
+
+  const auth = req.headers.authorization || '';
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  const queryToken = typeof req.query.key === 'string' ? req.query.key : '';
+
+  if (bearer === MCP_ACCESS_TOKEN || queryToken === MCP_ACCESS_TOKEN) return next();
+
+  res.status(401).json({
+    jsonrpc: '2.0',
+    error: { code: -32001, message: 'Unauthorized: missing or invalid access token' },
+    id: null
+  });
+}
 
 const app = express();
 app.use(cors());
@@ -86,7 +109,7 @@ function createMcpServer() {
 // One MCP session per Streamable HTTP session ID, per the SDK's documented pattern.
 const transports = {};
 
-app.post('/mcp', async (req, res) => {
+app.post('/mcp', requireMcpAuth, async (req, res) => {
   const sessionId = req.headers['mcp-session-id'];
   let transport;
 
@@ -128,8 +151,8 @@ async function handleSessionRequest(req, res) {
   await transport.handleRequest(req, res);
 }
 
-app.get('/mcp', handleSessionRequest);
-app.delete('/mcp', handleSessionRequest);
+app.get('/mcp', requireMcpAuth, handleSessionRequest);
+app.delete('/mcp', requireMcpAuth, handleSessionRequest);
 
 const PORT = process.env.PORT || 3000;
 const httpServer = http.createServer(app);
