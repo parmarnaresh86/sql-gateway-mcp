@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import WebSocket from 'ws';
 import { resolveParams } from './queries.js';
-import { runQuery } from './db.js';
+import { runQuery, runRawQuery } from './db.js';
+import { assertReadOnlySelect } from './sqlGuard.js';
 
 const { RENDER_URL, CONNECTOR_ID, CONNECTOR_TOKEN } = process.env;
 
@@ -31,7 +32,7 @@ function connect() {
     }
     if (job.type !== 'job') return;
 
-    const { requestId, queryName, params } = job;
+    const { requestId, queryName, params, sql: rawSql } = job;
 
     try {
       if (queryName === 'ping') {
@@ -39,9 +40,16 @@ function connect() {
         return;
       }
 
-      // The agent decides what it's willing to run, independent of what
-      // the server asked for - defense in depth even if the server side
-      // were ever compromised or misconfigured.
+      if (rawSql) {
+        // Ad-hoc SQL from run_sql_query. The agent still decides what it's
+        // willing to run, independent of what the server asked for -
+        // defense in depth even if the server side were ever compromised.
+        const safeSql = assertReadOnlySelect(rawSql);
+        const rows = await runRawQuery(safeSql);
+        ws.send(JSON.stringify({ type: 'job_result', requestId, result: rows }));
+        return;
+      }
+
       const { sql, values } = resolveParams(queryName, params || {});
       const rows = await runQuery(sql, values);
       ws.send(JSON.stringify({ type: 'job_result', requestId, result: rows }));

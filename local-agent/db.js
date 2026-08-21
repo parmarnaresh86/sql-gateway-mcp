@@ -19,6 +19,10 @@ async function getDriver() {
       run: async (sql, values) => {
         const [rows] = await pool.query(sql, values);
         return rows;
+      },
+      runRaw: async (sql) => {
+        const [rows] = await pool.query(sql);
+        return rows;
       }
     };
   } else if (engine === 'postgres') {
@@ -34,23 +38,38 @@ async function getDriver() {
       run: async (sql, values) => {
         const result = await pool.query(sql, values);
         return result.rows;
+      },
+      runRaw: async (sql) => {
+        const result = await pool.query(sql);
+        return result.rows;
       }
     };
   } else if (engine === 'mssql') {
     const mssql = (await import('mssql')).default;
-    const pool = await mssql.connect({
-      server: process.env.DB_HOST,
-      port: Number(process.env.DB_PORT || 1433),
+    const rawHost = process.env.DB_HOST || '';
+    const [hostPart, instancePart] = rawHost.split('\\');
+    const config = {
+      server: hostPart,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
       options: { encrypt: false, trustServerCertificate: true }
-    });
+    };
+    if (instancePart) {
+      config.options.instanceName = instancePart;
+    } else {
+      config.port = Number(process.env.DB_PORT || 1433);
+    }
+    const pool = await mssql.connect(config);
     driverCache = {
       run: async (sql, values) => {
         const request = pool.request();
         values.forEach((value, index) => request.input(`p${index}`, value));
         const result = await request.query(sql);
+        return result.recordset;
+      },
+      runRaw: async (sql) => {
+        const result = await pool.request().query(sql);
         return result.recordset;
       }
     };
@@ -61,6 +80,10 @@ async function getDriver() {
       run: async (sql, values) => {
         const stmt = db.prepare(sql);
         return stmt.all(...values);
+      },
+      runRaw: async (sql) => {
+        const stmt = db.prepare(sql);
+        return stmt.all();
       }
     };
   } else {
@@ -75,4 +98,9 @@ async function getDriver() {
 export async function runQuery(sql, values) {
   const driver = await getDriver();
   return driver.run(sql, values);
+}
+
+export async function runRawQuery(sql) {
+  const driver = await getDriver();
+  return driver.runRaw(sql);
 }

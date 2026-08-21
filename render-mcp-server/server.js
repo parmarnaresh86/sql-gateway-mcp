@@ -61,6 +61,25 @@ function createMcpServer() {
     }
   );
 
+  server.tool(
+    'run_sql_query',
+    'Run an ad-hoc, read-only SQL SELECT query against a specific connector\'s local database. Write the SQL yourself based on the schema you know or discover. The connector enforces read-only (SELECT-only) at the agent side regardless of what is sent - INSERT/UPDATE/DELETE/DDL will be rejected.',
+    {
+      connectorId: z
+        .string()
+        .describe('Which connector/PC to run the query on, e.g. "office-pc". Use list_connectors to see available IDs.'),
+      sql: z.string().describe('A single read-only SQL SELECT statement to run.')
+    },
+    async ({ connectorId, sql }) => {
+      try {
+        const result = await relay.sendJob(connectorId, { sql });
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+      }
+    }
+  );
+
   return server;
 }
 
