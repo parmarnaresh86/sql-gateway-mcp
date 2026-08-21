@@ -16,7 +16,10 @@ echo Render URL: %RENDER_URL%
 echo.
 
 set /p CONNECTOR_ID=Connector ID - a unique name for THIS pc, e.g. branch-office:
-set /p CONNECTOR_TOKEN=Connector Token - given to you by the admin:
+
+for /f "delims=" %%T in ('powershell -NoProfile -Command "$b=New-Object byte[] 32; (New-Object Security.Cryptography.RNGCryptoServiceProvider).GetBytes($b); ([BitConverter]::ToString($b)).Replace('-','').ToLower()"') do set CONNECTOR_TOKEN=%%T
+echo.
+echo Generated a new Connector Token for this PC: %CONNECTOR_TOKEN%
 echo.
 
 set DB_ENGINE=mssql
@@ -40,12 +43,27 @@ echo DB_NAME=%DB_NAME%
 echo DB_PATH=
 ) > .env
 
+(
+echo Add this line to the CONNECTOR_TOKENS environment variable in the
+echo Render dashboard for the sql-gateway-mcp-server service.
+echo If CONNECTOR_TOKENS already has entries, append a comma then this:
+echo.
+echo %CONNECTOR_ID%:%CONNECTOR_TOKEN%
+) > ADD_TO_RENDER.txt
+
 echo.
 echo .env written.
 echo.
-echo IMPORTANT: this connector will not come online until the admin adds
+echo ============================================
+echo   IMPORTANT - one manual step left
+echo ============================================
+echo This connector will not come online until you add this line to
+echo CONNECTOR_TOKENS in the Render dashboard for sql-gateway-mcp-server:
+echo.
 echo   %CONNECTOR_ID%:%CONNECTOR_TOKEN%
-echo to the CONNECTOR_TOKENS environment variable on Render.
+echo.
+echo This has also been saved to ADD_TO_RENDER.txt in this folder.
+echo ============================================
 echo.
 
 :afterenv
