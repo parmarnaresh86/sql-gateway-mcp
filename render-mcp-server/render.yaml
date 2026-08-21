@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: sql-gateway-mcp-server
+    env: node
+    plan: free
+    rootDir: render-mcp-server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: CONNECTOR_TOKENS
+        sync: false

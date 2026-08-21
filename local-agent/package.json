@@ -1,0 +1,20 @@
+{
+  "name": "sql-gateway-local-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Outbound-only agent that connects to the SQL Gateway MCP server on Render and runs allowlisted named queries against a local database.",
+  "scripts": {
+    "start": "node agent.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "mysql2": "^3.11.0",
+    "pg": "^8.13.0",
+    "mssql": "^11.0.1",
+    "better-sqlite3": "^11.5.0"
+  }
+}
