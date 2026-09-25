@@ -5,3 +5,7 @@ connector.pid
 connector-installer/
 connector-installer-claude/
 connector-installer*.zip
+
+# holds a live connector token — keep local, paste into Render
+ADD_TO_RENDER.txt
+**/ADD_TO_RENDER.txt

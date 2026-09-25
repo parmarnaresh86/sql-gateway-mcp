@@ -117,18 +117,33 @@ USB drive, whatever) and double-click **`install.bat`**. It will:
 2. Ask for a `Connector ID` (unique name for that PC) and the DB connection
    details.
 3. **Generate a secure `CONNECTOR_TOKEN` itself** — no need to invent one.
-4. Write `.env`, run `npm install`, and start the connector via `start.bat`.
+4. Write `.env` and run `npm install`.
 5. Print (and save to `ADD_TO_RENDER.txt`) the `id:token` line to append to
    Render's `CONNECTOR_TOKENS`.
+6. Ask how it should run — **press Enter to accept the recommended default**:
+   - **Option 1 — background process**: simple, but someone has to
+     double-click `start.bat` again after every reboot/logoff.
+   - **Option 2 — Windows auto-start service (default)**: installs
+     [`pm2`](https://pm2.keymetrics.io/) + `pm2-windows-startup` and
+     registers the connector to relaunch automatically on every boot, with
+     no one needing to log in. If the boot-registration step needs admin
+     rights, it tells you to re-run `install.bat` as Administrator.
 
-After that:
+Managing an auto-start (option 2) connector — all in `local-agent/`:
+- **Status + recent logs**: `service-status.bat` (or `pm2 status` / `pm2 logs sql-connector`)
+- **Stop** (until next reboot): `service-stop.bat`
+- **Restart**: `service-restart.bat`
+- **Remove auto-start entirely**: `service-uninstall.bat`
+
+Managing a background-process (option 1) connector:
 - **Start**: double-click `start.bat` (refuses to double-start if already
   running).
 - **Stop**: double-click `stop.bat`.
 - **Logs**: `agent.log` / `agent.err.log` in the same folder.
 
-(`install.ps1`/`install.sh` are an older, `pm2`-based alternative — functionally
-equivalent, kept for Linux/macOS or if you prefer a process manager.)
+(`install.ps1`/`install.sh` are an older, `pm2`-based alternative for
+Linux/macOS — `install.bat`'s option 2 now covers the Windows case with
+boot-time auto-start included.)
 
 ### Adding real named queries
 

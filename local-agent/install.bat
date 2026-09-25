@@ -72,12 +72,65 @@ call npm install
 if errorlevel 1 goto :installfail
 
 echo.
-echo Starting connector...
+echo ============================================
+echo   Run mode
+echo ============================================
+echo   1 = Background process only (simple; you must run start.bat
+echo       again after every reboot or logoff)
+echo   2 = Windows auto-start service (Recommended; survives reboot,
+echo       uses pm2 - needs internet access once, to install pm2)
+echo ============================================
+set /p RUNMODE=Choose 1 or 2 [2]:
+if "%RUNMODE%"=="" set RUNMODE=2
+if "%RUNMODE%"=="1" goto :simplestart
+
+echo.
+echo Installing pm2 (process manager) globally...
+call npm install -g pm2
+if errorlevel 1 goto :pm2fail
+
+echo Installing pm2-windows-startup (registers pm2 to launch at boot)...
+call npm install -g pm2-windows-startup
+if errorlevel 1 goto :pm2fail
+
+echo.
+echo Stopping any previous instance of this connector under pm2...
+call pm2 delete sql-connector >nul 2>nul
+
+echo Starting connector under pm2 as "sql-connector"...
+call pm2 start agent.js --name sql-connector --cwd "%~dp0"
+if errorlevel 1 goto :pm2fail
+
+echo Saving the pm2 process list (so it is restored after reboot)...
+call pm2 save
+if errorlevel 1 goto :pm2fail
+
+echo Registering pm2 to start automatically at Windows boot...
+call pm2-startup install
+if errorlevel 1 goto :pm2startupfail
+
+echo.
+echo ============================================
+echo   Setup complete - running as an auto-start service.
+echo   Status:   service-status.bat
+echo   Stop:     service-stop.bat
+echo   Restart:  service-restart.bat
+echo   Uninstall auto-start:  service-uninstall.bat
+echo ============================================
+pause
+exit /b 0
+
+:simplestart
+echo.
+echo Starting connector as a plain background process...
 call .\start.bat
 
 echo.
 echo ============================================
-echo   Setup complete.
+echo   Setup complete - background process mode.
+echo   NOTE: this will NOT restart automatically after a reboot
+echo   or logoff. Re-run start.bat manually, or re-run this
+echo   installer and choose option 2 for auto-start.
 echo   Check status:  type agent.log
 echo   Stop:          stop.bat
 echo   Start again:   start.bat
@@ -92,5 +145,29 @@ exit /b 1
 
 :installfail
 echo npm install failed. Check your internet connection and re-run this installer.
+pause
+exit /b 1
+
+:pm2fail
+echo.
+echo Could not install/start pm2. This usually means no internet access,
+echo or the account running this installer lacks permission to install
+echo global npm packages. Falling back to background-process mode instead.
+echo.
+call .\start.bat
+echo.
+echo Started as a plain background process (will NOT survive reboot).
+echo Re-run this installer later once the pm2 install issue is resolved,
+echo and choose option 2 again to enable auto-start.
+pause
+exit /b 1
+
+:pm2startupfail
+echo.
+echo pm2 is running the connector right now, but registering it to start
+echo at Windows boot failed - this step usually needs an elevated
+echo (Run as Administrator) command prompt. Right-click install.bat,
+echo choose "Run as administrator", and run it again to finish enabling
+echo auto-start. The connector is still running for this session either way.
 pause
 exit /b 1
